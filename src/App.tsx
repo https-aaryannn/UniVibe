@@ -1,34 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Vote,
-  User,
-  CheckCircle2,
-  AlertCircle,
-  LayoutDashboard,
-  LogOut,
-  Search,
-  TrendingUp,
-  Users,
-  Eye,
-  EyeOff,
-  Trophy,
-  Instagram,
-  ArrowRight,
-  ShieldCheck,
-  ChevronRight,
-  BarChart3
+  Vote, User, CheckCircle2, AlertCircle, LayoutDashboard, LogOut,
+  Search, TrendingUp, Users, Eye, EyeOff, Trophy, Instagram,
+  ArrowRight, ShieldCheck, ChevronRight, BarChart3
 } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell
-} from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { db } from "./firebase";
+import { collection, doc, getDoc, setDoc, getDocs } from "firebase/firestore";
 
 type Page = "landing" | "voting" | "voted" | "admin-login" | "admin-dashboard" | "results";
 
@@ -59,16 +38,7 @@ const LeaderboardChart = ({ data }: { data: LeaderboardItem[] }) => {
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip
-            cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-            contentStyle={{
-              borderRadius: '12px',
-              border: 'none',
-              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-              backgroundColor: '#fff',
-              fontSize: '12px'
-            }}
-          />
+          <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
           <Bar dataKey="votes" radius={[0, 8, 8, 0]} barSize={30}>
             {chartData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={index === 0 ? '#6366f1' : '#ec4899'} />
@@ -102,15 +72,33 @@ export default function App() {
 
   // Check if results are published on load
   useEffect(() => {
-    fetch("/api/results")
-      .then(res => {
-        if (res.ok) return res.json();
-        throw new Error("Not published");
-      })
-      .then(data => {
-        setPublicResults(data.leaderboard);
-      })
-      .catch(() => { });
+    const checkResults = async () => {
+      try {
+        const settingsRef = doc(db, "settings", "global");
+        const settingsSnap = await getDoc(settingsRef);
+        const resultsPublished = settingsSnap.exists() ? settingsSnap.data().results_published : false;
+
+        if (resultsPublished) {
+          const votesSnap = await getDocs(collection(db, "votes"));
+          const counts: Record<string, number> = {};
+
+          votesSnap.forEach(docSnap => {
+            const data = docSnap.data();
+            const ig = data.instagram_username;
+            counts[ig] = (counts[ig] || 0) + 1;
+          });
+
+          const leaderboard = Object.entries(counts)
+            .map(([instagram_username, vote_count]) => ({ instagram_username, vote_count }))
+            .sort((a, b) => b.vote_count - a.vote_count);
+
+          setPublicResults(leaderboard);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    checkResults();
   }, []);
 
   const handleEnterPoll = async (e: React.FormEvent) => {
@@ -121,10 +109,11 @@ export default function App() {
     setError("");
 
     try {
-      const res = await fetch(`/api/check-email/${encodeURIComponent(email)}`);
-      const data = await res.json();
+      const emailLower = email.toLowerCase();
+      const voteRef = doc(db, "votes", emailLower);
+      const voteSnap = await getDoc(voteRef);
 
-      if (data.hasVoted) {
+      if (voteSnap.exists()) {
         setError("You have already voted.");
       } else {
         setPage("voting");
@@ -144,19 +133,23 @@ export default function App() {
     setError("");
 
     try {
-      const res = await fetch("/api/vote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, instagramUsername })
+      const emailLower = email.toLowerCase();
+      const igUser = instagramUsername.toLowerCase().replace("@", "");
+
+      const voteRef = doc(db, "votes", emailLower);
+      const voteSnap = await getDoc(voteRef);
+
+      if (voteSnap.exists()) {
+        return setError("You have already voted.");
+      }
+
+      await setDoc(voteRef, {
+        email: emailLower,
+        instagram_username: igUser,
+        created_at: new Date().toISOString()
       });
 
-      const data = await res.json();
-
-      if (res.ok) {
-        setPage("voted");
-      } else {
-        setError(data.error || "Failed to submit vote");
-      }
+      setPage("voted");
     } catch (err) {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -170,14 +163,11 @@ export default function App() {
     setError("");
 
     try {
-      const res = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: adminEmail, password: adminPassword })
-      });
+      const adminEmailConfig = import.meta.env.VITE_ADMIN_EMAIL || import.meta.env.VITE_FIREBASE_PROJECT_ID;
+      const adminPasswordConfig = import.meta.env.VITE_ADMIN_PASSWORD || import.meta.env.VITE_FIREBASE_API_KEY;
 
-      if (res.ok) {
-        fetchAdminDashboard();
+      if (adminEmail === adminEmailConfig && adminPassword === adminPasswordConfig) {
+        await fetchAdminDashboard();
         setPage("admin-dashboard");
       } else {
         setError("Invalid admin credentials");
@@ -191,9 +181,30 @@ export default function App() {
 
   const fetchAdminDashboard = async () => {
     try {
-      const res = await fetch("/api/admin/dashboard");
-      const data = await res.json();
-      setAdminData(data);
+      const votesSnap = await getDocs(collection(db, "votes"));
+      let totalVotes = 0;
+      const counts: Record<string, number> = {};
+
+      votesSnap.forEach(docSnap => {
+        totalVotes++;
+        const data = docSnap.data();
+        const ig = data.instagram_username;
+        counts[ig] = (counts[ig] || 0) + 1;
+      });
+
+      const leaderboard = Object.entries(counts)
+        .map(([instagram_username, vote_count]) => ({ instagram_username, vote_count }))
+        .sort((a, b) => b.vote_count - a.vote_count);
+
+      const settingsRef = doc(db, "settings", "global");
+      const settingsSnap = await getDoc(settingsRef);
+      const resultsPublished = settingsSnap.exists() ? settingsSnap.data().results_published : false;
+
+      setAdminData({
+        totalVotes,
+        leaderboard,
+        resultsPublished
+      });
     } catch (err) {
       console.error("Failed to fetch dashboard data");
     }
@@ -202,12 +213,10 @@ export default function App() {
   const togglePublish = async () => {
     if (!adminData) return;
     try {
-      await fetch("/api/admin/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ published: !adminData.resultsPublished })
-      });
-      fetchAdminDashboard();
+      const newStatus = !adminData.resultsPublished;
+      const settingsRef = doc(db, "settings", "global");
+      await setDoc(settingsRef, { results_published: newStatus }, { merge: true });
+      await fetchAdminDashboard();
     } catch (err) {
       console.error("Failed to toggle publish status");
     }
@@ -404,7 +413,7 @@ export default function App() {
         <div>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 ml-1">Admin Email</label>
           <input
-            type="email"
+            type="text"
             value={adminEmail}
             onChange={(e) => setAdminEmail(e.target.value)}
             className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-zinc-500 outline-none transition-all dark:text-white"
