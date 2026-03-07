@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { db } from "./firebase";
-import { collection, doc, getDoc, setDoc, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, setDoc, getDocs, deleteDoc } from "firebase/firestore";
 
 type Page = "landing" | "voting" | "voted" | "admin-login" | "admin-dashboard" | "results";
 
@@ -219,6 +219,28 @@ export default function App() {
       await fetchAdminDashboard();
     } catch (err) {
       console.error("Failed to toggle publish status");
+    }
+  };
+
+  const handleDeleteUser = async (instagramUsername: string) => {
+    if (!window.confirm(`Are you sure you want to delete all votes for @${instagramUsername}?`)) return;
+
+    try {
+      // Find all votes for this user
+      const votesSnap = await getDocs(collection(db, "votes"));
+      const deletePromises: Promise<void>[] = [];
+
+      votesSnap.forEach(docSnap => {
+        if (docSnap.data().instagram_username === instagramUsername) {
+          deletePromises.push(deleteDoc(doc(db, "votes", docSnap.id)));
+        }
+      });
+
+      await Promise.all(deletePromises);
+      await fetchAdminDashboard(); // Refresh leaderboard
+    } catch (err) {
+      console.error("Failed to delete user votes", err);
+      alert("Failed to delete votes. Please try again.");
     }
   };
 
@@ -472,8 +494,8 @@ export default function App() {
           <button
             onClick={togglePublish}
             className={`px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all ${adminData?.resultsPublished
-                ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
-                : "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
+              ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
+              : "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
               }`}
           >
             {adminData?.resultsPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -546,6 +568,7 @@ export default function App() {
                 <th className="px-6 py-4 font-semibold">Rank</th>
                 <th className="px-6 py-4 font-semibold">Instagram Username</th>
                 <th className="px-6 py-4 font-semibold text-right">Votes</th>
+                <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -553,9 +576,9 @@ export default function App() {
                 <tr key={item.instagram_username} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
                   <td className="px-6 py-4">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${index === 0 ? "bg-amber-100 text-amber-700" :
-                        index === 1 ? "bg-zinc-200 text-zinc-700" :
-                          index === 2 ? "bg-orange-100 text-orange-700" :
-                            "text-zinc-400"
+                      index === 1 ? "bg-zinc-200 text-zinc-700" :
+                        index === 2 ? "bg-orange-100 text-orange-700" :
+                          "text-zinc-400"
                       }`}>
                       {index + 1}
                     </div>
@@ -571,11 +594,19 @@ export default function App() {
                   <td className="px-6 py-4 text-right font-bold text-zinc-900 dark:text-white">
                     {item.vote_count}
                   </td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => handleDeleteUser(item.instagram_username)}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
               {filteredLeaderboard.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-zinc-400">
+                  <td colSpan={4} className="px-6 py-12 text-center text-zinc-400">
                     No candidates found matching your search.
                   </td>
                 </tr>
@@ -627,15 +658,15 @@ export default function App() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
             className={`p-4 rounded-2xl border flex items-center justify-between ${index === 0
-                ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
-                : "bg-zinc-50 border-zinc-100 dark:bg-zinc-800/50 dark:border-zinc-700"
+              ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
+              : "bg-zinc-50 border-zinc-100 dark:bg-zinc-800/50 dark:border-zinc-700"
               }`}
           >
             <div className="flex items-center gap-4">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${index === 0 ? "bg-amber-400 text-white" :
-                  index === 1 ? "bg-zinc-300 text-zinc-700" :
-                    index === 2 ? "bg-orange-300 text-white" :
-                      "bg-zinc-200 dark:bg-zinc-700 text-zinc-500"
+                index === 1 ? "bg-zinc-300 text-zinc-700" :
+                  index === 2 ? "bg-orange-300 text-white" :
+                    "bg-zinc-200 dark:bg-zinc-700 text-zinc-500"
                 }`}>
                 {index + 1}
               </div>
