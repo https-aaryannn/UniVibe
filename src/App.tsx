@@ -25,7 +25,7 @@ const LeaderboardChart = ({ data }: { data: LeaderboardItem[] }) => {
   if (chartData.length === 0) return null;
 
   return (
-    <div className="h-[250px] w-full mt-4 mb-8">
+    <div className="h-[250px] sm:h-[300px] w-full mt-4 mb-4 sm:mb-8">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} layout="vertical" margin={{ left: 40, right: 20 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" opacity={0.2} />
@@ -33,7 +33,7 @@ const LeaderboardChart = ({ data }: { data: LeaderboardItem[] }) => {
           <YAxis
             dataKey="name"
             type="category"
-            width={100}
+            width={80}
             tick={{ fontSize: 11, fontWeight: 500 }}
             axisLine={false}
             tickLine={false}
@@ -483,17 +483,17 @@ export default function App() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="max-w-4xl w-full mx-auto p-6"
+      className="max-w-4xl w-full mx-auto p-4 sm:p-6"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-white">Admin Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">Admin Dashboard</h1>
           <p className="text-zinc-500 dark:text-zinc-400">Manage poll results and visibility</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center w-full md:w-auto justify-between md:justify-end gap-3">
           <button
             onClick={togglePublish}
-            className={`px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all ${adminData?.resultsPublished
+            className={`w-full sm:w-auto justify-center px-4 py-2 flex-1 sm:flex-none rounded-xl font-medium flex items-center gap-2 transition-all ${adminData?.resultsPublished
               ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
               : "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
               }`}
@@ -510,22 +510,22 @@ export default function App() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
+        <div className="bg-white dark:bg-zinc-900 p-4 sm:p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <Users className="w-5 h-5 text-indigo-500" />
             <span className="text-sm font-medium text-zinc-500">Total Votes</span>
           </div>
-          <div className="text-3xl font-bold text-zinc-900 dark:text-white">{adminData?.totalVotes || 0}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">{adminData?.totalVotes || 0}</div>
         </div>
-        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 p-4 sm:p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <TrendingUp className="w-5 h-5 text-pink-500" />
             <span className="text-sm font-medium text-zinc-500">Unique Candidates</span>
           </div>
-          <div className="text-3xl font-bold text-zinc-900 dark:text-white">{adminData?.leaderboard.length || 0}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-white">{adminData?.leaderboard.length || 0}</div>
         </div>
-        <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 p-4 sm:p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm sm:col-span-2 md:col-span-1">
           <div className="flex items-center gap-3 mb-2">
             <LayoutDashboard className="w-5 h-5 text-green-500" />
             <span className="text-sm font-medium text-zinc-500">Status</span>
@@ -537,7 +537,7 @@ export default function App() {
       </div>
 
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden mb-8">
-        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="p-4 sm:p-6 border-b border-zinc-100 dark:border-zinc-800">
           <div className="flex items-center gap-2 mb-1">
             <BarChart3 className="w-5 h-5 text-indigo-500" />
             <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Vote Distribution</h3>
@@ -548,16 +548,16 @@ export default function App() {
       </div>
 
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-4 sm:p-6 border-b border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Leaderboard</h3>
-          <div className="relative">
+          <div className="relative w-full sm:w-64 md:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input
               type="text"
               placeholder="Search username..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+              className="w-full pl-10 pr-4 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
             />
           </div>
         </div>
@@ -565,16 +565,16 @@ export default function App() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 dark:text-zinc-400 text-xs uppercase tracking-wider">
-                <th className="px-6 py-4 font-semibold">Rank</th>
-                <th className="px-6 py-4 font-semibold">Instagram Username</th>
-                <th className="px-6 py-4 font-semibold text-right">Votes</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold">Rank</th>
+                <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold">Username</th>
+                <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold text-right">Votes</th>
+                <th className="px-4 py-3 sm:px-6 sm:py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {filteredLeaderboard.map((item, index) => (
                 <tr key={item.instagram_username} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3 sm:px-6 sm:py-4">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${index === 0 ? "bg-amber-100 text-amber-700" :
                       index === 1 ? "bg-zinc-200 text-zinc-700" :
                         index === 2 ? "bg-orange-100 text-orange-700" :
@@ -583,21 +583,21 @@ export default function App() {
                       {index + 1}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3 sm:px-6 sm:py-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-gradient-to-tr from-amber-400 via-pink-500 to-indigo-600 rounded-full flex items-center justify-center text-white">
-                        <User className="w-4 h-4" />
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-tr from-amber-400 via-pink-500 to-indigo-600 rounded-full flex items-center justify-center text-white flex-shrink-0">
+                        <User className="w-3 h-3 sm:w-4 sm:h-4" />
                       </div>
-                      <span className="font-medium text-zinc-900 dark:text-white">@{item.instagram_username}</span>
+                      <span className="font-medium text-zinc-900 dark:text-white truncate max-w-[100px] sm:max-w-none">@{item.instagram_username}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right font-bold text-zinc-900 dark:text-white">
+                  <td className="px-4 py-3 sm:px-6 sm:py-4 text-right font-bold text-zinc-900 dark:text-white">
                     {item.vote_count}
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-4 py-3 sm:px-6 sm:py-4 text-right">
                     <button
                       onClick={() => handleDeleteUser(item.instagram_username)}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-medium transition-colors"
                     >
                       Delete
                     </button>

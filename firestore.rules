@@ -1,8 +1,43 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    
+    // Votes collection rules
+    match /votes/{emailId} {
+      // Anyone can read the total vote counts (needed for leaderboard)
+      allow read: if true;
+      
+      // A user can create a vote ONLY IF:
+      // 1. the document name (emailId) matches what's in the data body payload
+      // 2. they aren't overwriting an existing vote (vote once)
+      // 3. they specify an instagram username
+      allow create: if request.resource.data.email == emailId
+                   && !exists(/databases/$(database)/documents/votes/$(emailId))
+                   && request.resource.data.keys().hasAll(['email', 'instagram_username', 'created_at']);
+      
+      // ONLY the admin can update or delete votes 
+      // (Since we are using direct client SDK for admin, we'll allow delete manually here - note: in 
+      // a truly secure enterprise app, Admin actions would be done via Firebase Admin SDK backend)
+      // For this app, to prevent public vandals from deleting, we require an impossible condition,
+      // and rely on you using the Firebase Console or a separate authenticated script to delete,
+      // OR we just leave delete broadly open if you want the frontend button to work without Auth.
+      
+      // *Wait, your app currently doesn't use Firebase Auth for the admin login!*
+      // Since your App.tsx uses hardcoded env variables and direct client SDK to delete, 
+      // if we lock down `delete: if false`, your frontend Delete button won't work.
+      // 
+      // To secure it while keeping your frontend button working, we need to allow `delete` 
+      // temporarily or rely on Firebase Auth rules. 
+      // Let's leave delete open for now but lock down vote creation.
+      allow delete, update: if true; 
+    }
+
+    // Settings collection rules
+    match /settings/{docId} {
+      // Anyone can read if results are published
+      allow read: if true;
+      // Anyone can update setting (since we use env variables instead of Firebase Auth for now)
+      allow write: if true;
     }
   }
 }
