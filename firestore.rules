@@ -11,26 +11,23 @@ service cloud.firestore {
       // 1. the document name (emailId) matches what's in the data body payload
       // 2. they aren't overwriting an existing vote (vote once)
       // 3. they specify an instagram username or the votes array
-      allow create: if request.resource.data.email == emailId
+      allow create: if request.auth != null 
+                   && request.auth.token.email == emailId
+                   && request.resource.data.email == emailId
                    && !exists(/databases/$(database)/documents/votes/$(emailId))
                    && (request.resource.data.keys().hasAll(['email', 'instagram_username', 'created_at']) ||
                        request.resource.data.keys().hasAll(['email', 'votes', 'created_at']));
       
-      // ONLY the admin can update or delete votes 
-      // (Since we are using direct client SDK for admin, we'll allow delete manually here - note: in 
-      // a truly secure enterprise app, Admin actions would be done via Firebase Admin SDK backend)
-      // For this app, to prevent public vandals from deleting, we require an impossible condition,
-      // and rely on you using the Firebase Console or a separate authenticated script to delete,
-      // OR we just leave delete broadly open if you want the frontend button to work without Auth.
-      
-      // *Wait, your app currently doesn't use Firebase Auth for the admin login!*
-      // Since your App.tsx uses hardcoded env variables and direct client SDK to delete, 
-      // if we lock down `delete: if false`, your frontend Delete button won't work.
-      // 
-      // To secure it while keeping your frontend button working, we need to allow `delete` 
-      // temporarily or rely on Firebase Auth rules. 
-      // Let's leave delete open for now but lock down vote creation.
-      allow delete, update: if true; 
+      // Allow users to update their own votes.
+      // Note: Because the Admin dashboard uses hardcoded frontend credentials rather than Firebase Auth,
+      // restricting 'update' will cause the Admin 'Delete' button to fail when removing a candidate
+      // from a generic user's document. To fix this fully, you should transition Admin to use Firebase Auth.
+      allow update: if request.auth != null 
+                   && request.auth.token.email == emailId
+                   && request.resource.data.email == emailId;
+                   
+      // Leaving delete broad for the non-authenticated Admin dashboard delete functionality
+      allow delete: if true;
     }
 
     // Settings collection rules
