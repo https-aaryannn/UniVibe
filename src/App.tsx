@@ -56,6 +56,7 @@ export default function App() {
   const [instagramUsername, setInstagramUsername] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [votesList, setVotesList] = useState<string[]>([]);
 
   // Admin state
   const [adminEmail, setAdminEmail] = useState("");
@@ -84,8 +85,10 @@ export default function App() {
 
           votesSnap.forEach(docSnap => {
             const data = docSnap.data();
-            const ig = data.instagram_username;
-            counts[ig] = (counts[ig] || 0) + 1;
+            const votes = data.votes || (data.instagram_username ? [data.instagram_username] : []);
+            votes.forEach((ig: string) => {
+              counts[ig] = (counts[ig] || 0) + 1;
+            });
           });
 
           const leaderboard = Object.entries(counts)
@@ -114,8 +117,17 @@ export default function App() {
       const voteSnap = await getDoc(voteRef);
 
       if (voteSnap.exists()) {
-        setError("You have already voted.");
+        const data = voteSnap.data();
+        const currentVotes = data.votes || (data.instagram_username ? [data.instagram_username] : []);
+        setVotesList(currentVotes);
+
+        if (currentVotes.length >= 3) {
+          setError("You have already used all 3 of your votes.");
+        } else {
+          setPage("voting");
+        }
       } else {
+        setVotesList([]);
         setPage("voting");
       }
     } catch (err) {
@@ -136,19 +148,40 @@ export default function App() {
       const emailLower = email.toLowerCase();
       const igUser = instagramUsername.toLowerCase().replace("@", "");
 
+      if (votesList.length >= 3) {
+        return setError("You have already used all 3 of your votes.");
+      }
+      if (votesList.includes(igUser)) {
+        return setError("You have already voted for this person.");
+      }
+
       const voteRef = doc(db, "votes", emailLower);
       const voteSnap = await getDoc(voteRef);
 
+      let currentVotes: string[] = [];
       if (voteSnap.exists()) {
-        return setError("You have already voted.");
+        const data = voteSnap.data();
+        currentVotes = data.votes || (data.instagram_username ? [data.instagram_username] : []);
+
+        if (currentVotes.length >= 3) {
+          setVotesList(currentVotes);
+          return setError("You have already used all 3 of your votes.");
+        }
+        if (currentVotes.includes(igUser)) {
+          return setError("You have already voted for this person.");
+        }
       }
+
+      const newVotes = [...currentVotes, igUser];
 
       await setDoc(voteRef, {
         email: emailLower,
-        instagram_username: igUser,
-        created_at: new Date().toISOString()
-      });
+        votes: newVotes,
+        updated_at: new Date().toISOString(),
+        ...(currentVotes.length === 0 ? { created_at: new Date().toISOString() } : {})
+      }, { merge: true });
 
+      setVotesList(newVotes);
       setPage("voted");
     } catch (err) {
       setError("Something went wrong. Please try again.");
@@ -186,10 +219,12 @@ export default function App() {
       const counts: Record<string, number> = {};
 
       votesSnap.forEach(docSnap => {
-        totalVotes++;
         const data = docSnap.data();
-        const ig = data.instagram_username;
-        counts[ig] = (counts[ig] || 0) + 1;
+        const votes = data.votes || (data.instagram_username ? [data.instagram_username] : []);
+        totalVotes += votes.length;
+        votes.forEach((ig: string) => {
+          counts[ig] = (counts[ig] || 0) + 1;
+        });
       });
 
       const leaderboard = Object.entries(counts)
@@ -231,8 +266,17 @@ export default function App() {
       const deletePromises: Promise<void>[] = [];
 
       votesSnap.forEach(docSnap => {
-        if (docSnap.data().instagram_username === instagramUsername) {
-          deletePromises.push(deleteDoc(doc(db, "votes", docSnap.id)));
+        const data = docSnap.data();
+        const votes = data.votes || (data.instagram_username ? [data.instagram_username] : []);
+
+        if (votes.includes(instagramUsername)) {
+          const newVotes = votes.filter((v: string) => v !== instagramUsername);
+
+          if (newVotes.length === 0) {
+            deletePromises.push(deleteDoc(doc(db, "votes", docSnap.id)));
+          } else {
+            deletePromises.push(setDoc(doc(db, "votes", docSnap.id), { votes: newVotes, updated_at: new Date().toISOString() }, { merge: true }));
+          }
         }
       });
 
@@ -264,7 +308,7 @@ export default function App() {
         UniVibe
       </h1>
       <p className="text-zinc-500 dark:text-zinc-400 text-center mb-8">
-        Vote for the most popular person in your college. Each email can vote only once.
+        Vote for the most popular person in your college. Each email can cast up to 3 votes.
       </p>
 
       <form onSubmit={handleEnterPoll} className="space-y-4">
@@ -341,9 +385,14 @@ export default function App() {
       <h2 className="text-2xl font-bold text-center text-zinc-900 dark:text-white mb-2">
         Cast Your Vote
       </h2>
-      <p className="text-zinc-500 dark:text-zinc-400 text-center mb-8">
+      <p className="text-zinc-500 dark:text-zinc-400 text-center mb-6">
         Enter the Instagram username of the person you want to vote for.
       </p>
+      <div className="flex justify-center mb-8">
+        <span className="text-sm font-medium text-pink-600 dark:text-pink-400 bg-pink-50 dark:bg-pink-900/30 px-3 py-1 rounded-full">
+          {3 - votesList.length} vote{3 - votesList.length !== 1 ? 's' : ''} remaining
+        </span>
+      </div>
 
       <form onSubmit={handleSubmitVote} className="space-y-4">
         <div>
@@ -406,15 +455,38 @@ export default function App() {
         </motion.div>
       </div>
       <h2 className="text-3xl font-bold text-zinc-900 dark:text-white mb-3">Vote Recorded!</h2>
-      <p className="text-zinc-500 dark:text-zinc-400 mb-8">
+      <p className="text-zinc-500 dark:text-zinc-400 mb-6">
         Your vote for <span className="font-bold text-pink-600">@{instagramUsername}</span> has been recorded successfully.
       </p>
-      <button
-        onClick={() => setPage("landing")}
-        className="px-8 py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-semibold rounded-xl hover:opacity-90 transition-all"
-      >
-        Back to Home
-      </button>
+      <div className="mb-8">
+        <p className="text-sm font-medium text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800 py-2 px-4 rounded-full inline-block">
+          {3 - votesList.length} vote{3 - votesList.length !== 1 ? 's' : ''} remaining
+        </p>
+      </div>
+      <div className="flex flex-col gap-3">
+        {votesList.length < 3 && (
+          <button
+            onClick={() => {
+              setInstagramUsername("");
+              setPage("voting");
+            }}
+            className="w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-pink-500/20"
+          >
+            Cast Another Vote
+          </button>
+        )}
+        <button
+          onClick={() => {
+            setEmail("");
+            setInstagramUsername("");
+            setVotesList([]);
+            setPage("landing");
+          }}
+          className="w-full py-3 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-semibold rounded-xl hover:opacity-90 transition-all"
+        >
+          {votesList.length < 3 ? "Finish for Later" : "Back to Home"}
+        </button>
+      </div>
     </motion.div>
   );
 
